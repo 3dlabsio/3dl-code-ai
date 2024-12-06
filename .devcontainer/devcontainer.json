@@ -1,0 +1,22 @@
+{
+    "name": "3DL Code AI Container",
+    "build": {
+      "dockerfile": "Dockerfile",
+      "context": ".."
+    },
+    "settings": {
+      "python.defaultInterpreterPath": "/usr/local/bin/python",
+      "terminal.integrated.defaultProfile.linux": "/bin/bash"
+    },
+    "extensions": [
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "ms-azuretools.vscode-docker"
+    ],
+    "remoteUser": "python",
+    "containerEnv": {
+      "MYVALUE": "True"
+    },
+    "runArgs": ["--env-file", ".env"],
+    "postCreateCommand": "chown -R python:python /workspaces/3dl-code-ai"
+}

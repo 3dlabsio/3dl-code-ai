@@ -1,0 +1,7 @@
+langchain
+langchain-community
+deeplake
+openai
+tiktoken
+gitpython
+python-dotenv
