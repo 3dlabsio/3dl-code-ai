@@ -5,3 +5,4 @@ openai
 tiktoken
 gitpython
 python-dotenv
+streamlit

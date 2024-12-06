@@ -17,5 +17,7 @@ USER python
 # Copy and install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+EXPOSE 8501
+
 # Start an interactive Bash shell by default
 CMD ["bash"]

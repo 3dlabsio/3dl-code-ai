@@ -17,6 +17,8 @@
     "containerEnv": {
       "MYVALUE": "True"
     },
+    "forwardPorts": [8501],
+    "appPort": 8501,
     "runArgs": ["--env-file", ".env"],
     "postCreateCommand": "chown -R python:python /workspaces/3dl-code-ai"
 }
