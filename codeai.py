@@ -6,6 +6,7 @@ import git
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 import deeplake
+import openai
 from openai import OpenAI
 import numpy as np
 
@@ -19,25 +20,35 @@ def clone_repository(repo_url, clone_dir="./cloned_repo"):
     return clone_dir
 
 def load_documents(directory):
-    """Walks through the repository directory and loads documents."""
+    """Walks through the repository directory and loads documents with relevant extensions."""
     print("Loading documents from the repository...")
+    
+    # Relevant file extensions for programming
+    PROGRAMMING_EXTENSIONS = {
+        '.py', '.js', '.java', '.cpp', '.c', '.h', '.cs', '.rb', '.go',
+        '.ts', '.html', '.css', '.json', '.xml', '.sql', '.sh', '.php',
+        '.md', '.yaml', '.yml', '.toml', '.ini'
+    }
+    
     docs = []
     for dirpath, _, filenames in os.walk(directory):
         for file in filenames:
-            try:
-                filepath = os.path.join(dirpath, file)
-                # Try multiple encodings
-                encodings_to_try = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']
-                for encoding in encodings_to_try:
-                    try:
-                        with open(filepath, 'r', encoding=encoding) as f:
-                            docs.append(f.read())
-                        break
-                    except UnicodeDecodeError:
-                        continue
-            except Exception as e:
-                print(f"Skipping {file}: {e}")
-    print(f"Loaded {len(docs)} documents.")
+            # Check if the file has a relevant extension
+            if os.path.splitext(file)[1].lower() in PROGRAMMING_EXTENSIONS:
+                try:
+                    filepath = os.path.join(dirpath, file)
+                    # Try multiple encodings
+                    encodings_to_try = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']
+                    for encoding in encodings_to_try:
+                        try:
+                            with open(filepath, 'r', encoding=encoding) as f:
+                                docs.append(f.read())
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                except Exception as e:
+                    print(f"Skipping {file}: {e}")
+    print(f"Loaded {len(docs)} documents with relevant extensions.")
     return docs
 
 def chunk_documents(docs, chunk_size=1000):
@@ -51,16 +62,13 @@ def chunk_documents(docs, chunk_size=1000):
     return chunks
 
 def embedding_function(texts, model="text-embedding-ada-002"):
-    """Embeds the texts using OpenAI's updated client API."""
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    """Embeds the texts using OpenAI's updated client API with rate limiting."""
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     
     if isinstance(texts, str):
         texts = [texts]
         
     # Preprocess texts:
-    # 1. Convert to string
-    # 2. Replace newlines with spaces
-    # 3. Handle empty strings
     processed_texts = []
     for text in texts:
         if text is None or text.strip() == "":
@@ -68,28 +76,38 @@ def embedding_function(texts, model="text-embedding-ada-002"):
         processed_text = str(text).replace("\n", " ").strip()
         processed_texts.append(processed_text)
     
-    # Check if any text is empty after processing
     if not any(processed_texts):
         raise ValueError("All texts are empty after processing")
         
-    # Create embeddings in smaller batches to avoid token limits
     batch_size = 100  # Adjust based on your needs
     all_embeddings = []
-    
+
     for i in range(0, len(processed_texts), batch_size):
         batch_texts = processed_texts[i:i + batch_size]
-        try:
-            response = client.embeddings.create(
-                model=model,
-                input=batch_texts
-            )
-            batch_embeddings = [item.embedding for item in response.data]
-            all_embeddings.extend(batch_embeddings)
-        except Exception as e:
-            print(f"Error processing batch {i//batch_size + 1}: {e}")
-            raise
+        while True:
+            try:
+                response = client.embeddings.create(
+                    model=model,
+                    input=batch_texts
+                )
+                batch_embeddings = [item.embedding for item in response.data]
+                all_embeddings.extend(batch_embeddings)
+                break  # Exit the loop if successful
+            except openai.RateLimitError as e:
+                print(f"Rate limit hit. Retrying after 1 second: {e}")
+                time.sleep(1)  # Wait for 1 second before retrying
+            except openai.APIError as e:
+                print(f"API error: {e}. Retrying...")
+                time.sleep(5)  # Handle transient API errors
+            except openai.APIConnectionError as e:
+                print(f"Connection error: {e}. Retrying...")
+                time.sleep(5)
+            except Exception as e:
+                print(f"Unexpected error: {e}")
+                raise
             
     return all_embeddings
+
 
 def store_in_deeplake(chunks, deeplake_dataset_path):
     """Stores the processed chunks in a Deep Lake dataset."""
