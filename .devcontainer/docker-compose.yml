@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspaces/3dl-code-ai:cached
+      - ${HOME}/.gitconfig:/home/python/.gitconfig:ro
+    command: sleep infinity
+    environment:
+      - DATABASE_URL=postgresql://python:python@db:5432/chatbot
+    env_file:
+      - ../.env
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=python
+      - POSTGRES_PASSWORD=python
+      - POSTGRES_DB=chatbot
+
+volumes:
+  postgres-data:

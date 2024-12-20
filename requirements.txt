@@ -6,3 +6,4 @@ tiktoken
 gitpython
 python-dotenv
 streamlit
+psycopg2-binary==2.9.9
